@@ -1,24 +1,41 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Editor from "../components/editor/Editor";
+import ActiveUsers from "../components/editor/ActiveUsers";
+import useCollaboration from "../hooks/useCollaboration";
+
+// For now, hard-coded. Phase 6 + 7 will make these dynamic.
+const DOCUMENT_ID = "doc-001";
+const USER_NAME = "User " + Math.floor(Math.random() * 100);
 
 const DocumentPage = () => {
-  const [content, setContent] = useState("");
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [editorInstance, setEditorInstance] = useState(null);
+  const saveTimerRef = useRef(null);
 
-  // Simulate auto-save (we'll wire this to the real DB in Phase 6)
-  const handleChange = useCallback((html) => {
-    setContent(html);
-    setIsSaving(true);
+  const { isConnected, sendChange } = useCollaboration({
+    documentId: DOCUMENT_ID,
+    userName: USER_NAME,
+    editor: editorInstance,
+    onUsersUpdate: setActiveUsers,
+  });
 
-    // Debounced fake save — 1 second after last keystroke
-    const timer = setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date());
-    }, 1000);
+  const handleChange = useCallback(
+    (html) => {
+      // Send to collaborators
+      sendChange(html);
 
-    return () => clearTimeout(timer);
-  }, []);
+      // Auto-save UI feedback
+      setIsSaving(true);
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        setIsSaving(false);
+        setLastSaved(new Date());
+      }, 1000);
+    },
+    [sendChange]
+  );
 
   const formatSaveTime = (date) => {
     if (!date) return "";
@@ -27,15 +44,13 @@ const DocumentPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      {/* Top navigation bar */}
+      {/* Nav bar */}
       <nav className="
         flex items-center justify-between
         px-6 py-3
         border-b border-gray-200 dark:border-gray-700
-        bg-white dark:bg-gray-900
-        z-20
+        bg-white dark:bg-gray-900 z-20
       ">
-        {/* Left: Logo + Doc name */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-blue-500 flex items-center justify-center">
@@ -45,9 +60,7 @@ const DocumentPage = () => {
               CollabDocs
             </span>
           </div>
-
           <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
-
           <input
             type="text"
             defaultValue="Untitled Document"
@@ -56,14 +69,27 @@ const DocumentPage = () => {
               bg-transparent border-none outline-none
               hover:bg-gray-100 dark:hover:bg-gray-800
               focus:bg-gray-100 dark:focus:bg-gray-800
-              px-2 py-1 rounded-md transition-colors
-              w-48
+              px-2 py-1 rounded-md transition-colors w-48
             "
           />
         </div>
 
-        {/* Right: Save status */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {/* Live users */}
+          <ActiveUsers users={activeUsers} />
+
+          {/* Connection status */}
+          <div className="flex items-center gap-1.5">
+            <div className={`
+              w-2 h-2 rounded-full transition-colors
+              ${isConnected ? "bg-green-400" : "bg-red-400"}
+            `} />
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {isConnected ? "Live" : "Offline"}
+            </span>
+          </div>
+
+          {/* Save status */}
           <span className="text-xs text-gray-400 dark:text-gray-500">
             {isSaving
               ? "Saving..."
@@ -72,7 +98,7 @@ const DocumentPage = () => {
               : ""}
           </span>
 
-          {/* Dark mode toggle placeholder */}
+          {/* Dark mode toggle */}
           <button
             onClick={() => document.documentElement.classList.toggle("dark")}
             className="
@@ -87,9 +113,11 @@ const DocumentPage = () => {
         </div>
       </nav>
 
-      {/* Editor fills remaining height */}
       <div className="flex-1 overflow-hidden">
-        <Editor content={content} onChange={handleChange} />
+        <Editor
+          onChange={handleChange}
+          onEditorReady={setEditorInstance}
+        />
       </div>
     </div>
   );

@@ -2,18 +2,17 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Toolbar from "./Toolbar";
 
-const Editor = ({ content, onChange }) => {
+const Editor = ({ content, onChange, onEditorReady }) => {
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-    ],
-    content: content || `
-      <h1>Untitled Document</h1>
-      <p>Start writing here...</p>
-    `,
+    extensions: [StarterKit],
+    content: content || "<h1>Untitled Document</h1><p>Start writing here...</p>",
     onUpdate: ({ editor }) => {
-      // Every time the document changes, call onChange with the new HTML
       onChange?.(editor.getHTML());
+    },
+    onCreate: ({ editor }) => {
+      // Notify parent that editor instance is ready
+      // useCollaboration needs this to attach socket listeners
+      onEditorReady?.(editor);
     },
     editorProps: {
       attributes: {
@@ -24,12 +23,10 @@ const Editor = ({ content, onChange }) => {
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      {/* Sticky toolbar */}
       <div className="sticky top-0 z-10 shadow-sm">
         <Toolbar editor={editor} />
       </div>
 
-      {/* Editor canvas — mimics a document page */}
       <div className="flex-1 overflow-y-auto py-12 px-4 bg-gray-50 dark:bg-gray-800">
         <div className="
           max-w-3xl mx-auto bg-white dark:bg-gray-900
@@ -37,6 +34,7 @@ const Editor = ({ content, onChange }) => {
           min-h-[calc(100vh-160px)]
           px-12 py-10
           border border-gray-200 dark:border-gray-700
+          relative
         ">
           <EditorContent
             editor={editor}
