@@ -7,7 +7,8 @@ const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 export const EVENTS = {
   JOIN_DOCUMENT: "join-document",
   LEAVE_DOCUMENT: "leave-document",
-  DOCUMENT_CHANGE: "document-change",
+  OPERATION: "operation",
+  OPERATIONS_ACK: "operation-ack",
   DOCUMENT_STATE: "document-state",
   CURSOR_MOVE: "cursor-move",
   CURSORS_UPDATE: "cursors-update",

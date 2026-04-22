@@ -14,12 +14,12 @@ const DocumentPage = () => {
   const [editorInstance, setEditorInstance] = useState(null);
   const saveTimerRef = useRef(null);
 
-  const { isConnected, sendChange } = useCollaboration({
-    documentId: DOCUMENT_ID,
-    userName: USER_NAME,
-    editor: editorInstance,
-    onUsersUpdate: setActiveUsers,
-  });
+  const { isConnected, sendChange, conflictResolved } = useCollaboration({
+  documentId: DOCUMENT_ID,
+  userName: USER_NAME,
+  editor: editorInstance,
+  onUsersUpdate: setActiveUsers,
+});
 
   const handleChange = useCallback(
     (html) => {
@@ -74,43 +74,56 @@ const DocumentPage = () => {
           />
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Live users */}
-          <ActiveUsers users={activeUsers} />
+<div className="flex items-center gap-4">
+  {/* Live users */}
+  <ActiveUsers users={activeUsers} />
 
-          {/* Connection status */}
-          <div className="flex items-center gap-1.5">
-            <div className={`
-              w-2 h-2 rounded-full transition-colors
-              ${isConnected ? "bg-green-400" : "bg-red-400"}
-            `} />
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {isConnected ? "Live" : "Offline"}
-            </span>
-          </div>
+  {/* Conflict resolved badge */}
+  {conflictResolved && (
+    <div className="
+      flex items-center gap-1.5 px-2.5 py-1 rounded-full
+      bg-amber-100 dark:bg-amber-900/40
+      text-amber-700 dark:text-amber-400
+      text-xs font-medium
+      animate-pulse
+    ">
+      ⚡ Conflict resolved
+    </div>
+  )}
 
-          {/* Save status */}
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {isSaving
-              ? "Saving..."
-              : lastSaved
-              ? `Saved at ${formatSaveTime(lastSaved)}`
-              : ""}
-          </span>
+  {/* Connection status */}
+  <div className="flex items-center gap-1.5">
+    <div className={`
+      w-2 h-2 rounded-full transition-colors
+      ${isConnected ? "bg-green-400" : "bg-red-400"}
+    `} />
+    <span className="text-xs text-gray-400 dark:text-gray-500">
+      {isConnected ? "Live" : "Offline"}
+    </span>
+  </div>
 
-          {/* Dark mode toggle */}
-          <button
-            onClick={() => document.documentElement.classList.toggle("dark")}
-            className="
-              p-2 rounded-md text-gray-500 dark:text-gray-400
-              hover:bg-gray-100 dark:hover:bg-gray-800
-              transition-colors text-sm
-            "
-            title="Toggle dark mode"
-          >
-            🌓
-          </button>
-        </div>
+  {/* Save status */}
+  <span className="text-xs text-gray-400 dark:text-gray-500">
+    {isSaving
+      ? "Saving..."
+      : lastSaved
+      ? `Saved at ${formatSaveTime(lastSaved)}`
+      : ""}
+  </span>
+
+  {/* Dark mode toggle */}
+  <button
+    onClick={() => document.documentElement.classList.toggle("dark")}
+    className="
+      p-2 rounded-md text-gray-500 dark:text-gray-400
+      hover:bg-gray-100 dark:hover:bg-gray-800
+      transition-colors text-sm
+    "
+    title="Toggle dark mode"
+  >
+    🌓
+  </button>
+</div>
       </nav>
 
       <div className="flex-1 overflow-hidden">
