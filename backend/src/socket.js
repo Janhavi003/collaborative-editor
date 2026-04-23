@@ -1,7 +1,9 @@
 const { EVENTS, OP_TYPES } = require("./config/constants");
 const { transformOperation, applyOperation } = require("./ot");
+const { loadDocument, saveDocument } = require("./services/documentService");
 
 const activeDocuments = new Map();
+const saveTimers = new Map(); // debounce auto-save per document
 
 const CURSOR_COLORS = [
   "#F87171", "#FB923C", "#FBBF24", "#34D399",
@@ -10,14 +12,47 @@ const CURSOR_COLORS = [
 const getRandomColor = () =>
   CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)];
 
+const AUTOSAVE_DELAY = parseInt(process.env.AUTOSAVE_DEBOUNCE_MS) || 2000;
+
+// --------------------------------------------------
+// Auto-save: debounced write to MongoDB
+// --------------------------------------------------
+const scheduleSave = (documentId) => {
+  // Clear existing timer for this doc
+  if (saveTimers.has(documentId)) {
+    clearTimeout(saveTimers.get(documentId));
+  }
+
+  const timer = setTimeout(async () => {
+    const doc = activeDocuments.get(documentId);
+    if (!doc) return;
+
+    try {
+      await saveDocument(documentId, {
+        content: doc.richContent,
+        version: doc.version,
+      });
+      console.log(
+        `[AutoSave] Saved document ${documentId} at version ${doc.version}`
+      );
+    } catch (err) {
+      console.error(`[AutoSave] Failed to save ${documentId}:`, err.message);
+    }
+
+    saveTimers.delete(documentId);
+  }, AUTOSAVE_DELAY);
+
+  saveTimers.set(documentId, timer);
+};
+
 const initializeSocket = (io) => {
   io.on("connection", (socket) => {
     console.log(`[Socket] Connected: ${socket.id}`);
 
     // --------------------------------------------------
-    // JOIN DOCUMENT
+    // JOIN DOCUMENT — now loads from MongoDB
     // --------------------------------------------------
-    socket.on(EVENTS.JOIN_DOCUMENT, ({ documentId, userName }) => {
+    socket.on(EVENTS.JOIN_DOCUMENT, async ({ documentId, userName }) => {
       if (socket.currentDocumentId) {
         socket.leave(socket.currentDocumentId);
         handleUserLeave(io, socket);
@@ -28,14 +63,28 @@ const initializeSocket = (io) => {
       socket.userName = userName || "Anonymous";
       socket.userColor = getRandomColor();
 
+      // Load from DB if not already in memory
       if (!activeDocuments.has(documentId)) {
-        activeDocuments.set(documentId, {
-          content: "",          // plain text shadow for OT
-          richContent: "",      // full HTML content
-          version: 0,           // operation counter
-          history: [],          // all applied operations (for transforms)
-          users: new Map(),
-        });
+        try {
+          const dbDoc = await loadDocument(documentId);
+
+          activeDocuments.set(documentId, {
+            content: dbDoc.content || "",
+            richContent: dbDoc.content || "",
+            version: dbDoc.version || 0,
+            history: [],
+            users: new Map(),
+          });
+
+          console.log(
+            `[Socket] Loaded doc ${documentId} from DB ` +
+            `(version ${dbDoc.version})`
+          );
+        } catch (err) {
+          console.error(`[Socket] Failed to load doc ${documentId}:`, err.message);
+          socket.emit("error", { message: "Failed to load document" });
+          return;
+        }
       }
 
       const doc = activeDocuments.get(documentId);
@@ -47,7 +96,7 @@ const initializeSocket = (io) => {
         cursor: null,
       });
 
-      // Send full current state to the joining user
+      // Send persisted content to joining user
       socket.emit(EVENTS.DOCUMENT_STATE, {
         content: doc.richContent,
         version: doc.version,
@@ -59,60 +108,53 @@ const initializeSocket = (io) => {
     });
 
     // --------------------------------------------------
-    // OPERATION (replaces DOCUMENT_CHANGE)
+    // OPERATION — OT + auto-save
     // --------------------------------------------------
     socket.on(EVENTS.OPERATION, ({ documentId, operation }) => {
       const doc = activeDocuments.get(documentId);
       if (!doc) return;
 
-      // Attach the client's socket ID so we can skip self-transforms
       operation.clientId = socket.id;
 
       let transformedOp = operation;
 
-      // Has the server moved ahead since this client last synced?
       if (operation.version < doc.version) {
-        // Get all ops the client hasn't seen
         const missedOps = doc.history.slice(operation.version);
-
         console.log(
           `[OT] Transforming op from ${socket.userName}. ` +
-          `Client version: ${operation.version}, Server version: ${doc.version}. ` +
-          `Missed ops: ${missedOps.length}`
+          `Client: ${operation.version}, Server: ${doc.version}, ` +
+          `Missed: ${missedOps.length}`
         );
-
         transformedOp = transformOperation(operation, missedOps);
         transformedOp.wasTransformed = true;
       }
 
-      // Apply the (possibly transformed) operation
+      // Apply to in-memory doc
       if (operation.type === OP_TYPES.REPLACE) {
-        // Rich text formatting change — update full HTML
         doc.richContent = transformedOp.content;
-        doc.content = transformedOp.content; // simplified
+        doc.content = transformedOp.content;
       } else {
         doc.content = applyOperation(doc.content, transformedOp);
         doc.richContent = transformedOp.richContent || doc.richContent;
       }
 
-      // Increment version and record in history
       doc.version += 1;
       transformedOp.serverVersion = doc.version;
       doc.history.push(transformedOp);
 
-      // Keep history bounded (last 100 ops)
       if (doc.history.length > 100) {
         doc.history = doc.history.slice(-100);
       }
 
-      // ACK back to the sender with the new server version
+      // Schedule a debounced save to MongoDB
+      scheduleSave(documentId);
+
       socket.emit(EVENTS.OPERATIONS_ACK, {
         clientOpId: operation.id,
         serverVersion: doc.version,
         wasTransformed: transformedOp.wasTransformed || false,
       });
 
-      // Broadcast transformed op to all OTHER users
       socket.to(documentId).emit(EVENTS.OPERATION, {
         operation: transformedOp,
         serverVersion: doc.version,
@@ -156,6 +198,8 @@ const handleUserLeave = (io, socket) => {
   doc.users.delete(socket.id);
 
   if (doc.users.size === 0) {
+    // Final save before evicting from memory
+    scheduleSave(documentId);
     activeDocuments.delete(documentId);
   } else {
     broadcastUsers(io, documentId, doc);
@@ -163,8 +207,9 @@ const handleUserLeave = (io, socket) => {
 };
 
 const broadcastUsers = (io, documentId, doc) => {
-  const users = Array.from(doc.users.values());
-  io.to(documentId).emit(EVENTS.USERS_UPDATE, { users });
+  io.to(documentId).emit(EVENTS.USERS_UPDATE, {
+    users: Array.from(doc.users.values()),
+  });
 };
 
 module.exports = { initializeSocket };

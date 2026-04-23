@@ -1,25 +1,51 @@
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+
 import Toolbar from "./Toolbar";
 
-const Editor = ({ content, onChange, onEditorReady }) => {
+const Editor = ({
+  content,
+  onChange,
+  onEditorReady,
+}) => {
   const editor = useEditor({
     extensions: [StarterKit],
-    content: content || "<h1>Untitled Document</h1><p>Start writing here...</p>",
+
+    content:
+      content ||
+      "<h1>Untitled Document</h1><p>Start writing here...</p>",
+
     onUpdate: ({ editor }) => {
       onChange?.(editor.getHTML());
     },
+
     onCreate: ({ editor }) => {
-      // Notify parent that editor instance is ready
-      // useCollaboration needs this to attach socket listeners
+      // Notify parent when editor is ready
       onEditorReady?.(editor);
     },
+
     editorProps: {
       attributes: {
         class: "outline-none min-h-full",
       },
     },
   });
+
+  /**
+   * IMPORTANT:
+   * Restore saved content after refresh
+   */
+  useEffect(() => {
+    if (editor && content) {
+      const current = editor.getHTML();
+
+      // Prevent infinite resets
+      if (current !== content) {
+        editor.commands.setContent(content);
+      }
+    }
+  }, [editor, content]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
@@ -28,14 +54,16 @@ const Editor = ({ content, onChange, onEditorReady }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto py-12 px-4 bg-gray-50 dark:bg-gray-800">
-        <div className="
-          max-w-3xl mx-auto bg-white dark:bg-gray-900
-          rounded-lg shadow-sm
-          min-h-[calc(100vh-160px)]
-          px-12 py-10
-          border border-gray-200 dark:border-gray-700
-          relative
-        ">
+        <div
+          className="
+            max-w-3xl mx-auto bg-white dark:bg-gray-900
+            rounded-lg shadow-sm
+            min-h-[calc(100vh-160px)]
+            px-12 py-10
+            border border-gray-200 dark:border-gray-700
+            relative
+          "
+        >
           <EditorContent
             editor={editor}
             className="
