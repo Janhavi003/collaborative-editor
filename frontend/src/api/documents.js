@@ -39,3 +39,12 @@ export const updateDocumentTitle = async (documentId, title) => {
   if (!res.ok) throw new Error("Failed to update title");
   return res.json();
 };
+
+export const deleteDocument = async (documentId) => {
+  const res = await fetch(`${BASE_URL}/api/documents/${documentId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to delete document");
+  return res.json();
+};

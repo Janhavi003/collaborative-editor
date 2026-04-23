@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ui/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import AuthCallback from "./pages/AuthCallback";
+import DashboardPage from "./pages/DashboardPage";
 import DocumentPage from "./pages/DocumentPage";
 
 function App() {
@@ -14,6 +15,14 @@ function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doc/:documentId"
             element={
               <ProtectedRoute>
                 <DocumentPage />

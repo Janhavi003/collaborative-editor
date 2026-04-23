@@ -1,9 +1,35 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const SOCKET_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  "http://localhost:5000";
 
-// Shared event names — must match backend/src/config/constants.js
+/**
+ * --------------------------------------------------
+ * Shared Socket Instance
+ * --------------------------------------------------
+ * IMPORTANT:
+ * Only ONE socket for the entire app
+ */
+const socket = io(SOCKET_URL, {
+  transports: ["websocket"],
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  autoConnect: true,
+});
+
+/**
+ * --------------------------------------------------
+ * Shared Event Constants
+ * Must match backend constants
+ * --------------------------------------------------
+ */
 export const EVENTS = {
   JOIN_DOCUMENT: "join-document",
   LEAVE_DOCUMENT: "leave-document",
@@ -16,53 +42,136 @@ export const EVENTS = {
 };
 
 const useSocket = () => {
-  const socketRef = useRef(null);
-  const [isConnected, setIsConnected] = useState(false);
+  /**
+   * Connection state
+   */
+  const [isConnected, setIsConnected] =
+    useState(socket.connected);
 
+  /**
+   * --------------------------------------------------
+   * Socket Lifecycle
+   * --------------------------------------------------
+   */
   useEffect(() => {
-    // Create socket connection
-    socketRef.current = io(SOCKET_URL, {
-      transports: ["websocket"],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    /**
+     * Connected
+     */
+    const handleConnect = () => {
+      console.log(
+        "[Socket] Connected:",
+        socket.id
+      );
 
-    const socket = socketRef.current;
-
-    socket.on("connect", () => {
-      console.log("[Socket] Connected:", socket.id);
       setIsConnected(true);
-    });
+    };
 
-    socket.on("disconnect", () => {
-      console.log("[Socket] Disconnected");
+    /**
+     * Disconnected
+     */
+    const handleDisconnect = () => {
+      console.log(
+        "[Socket] Disconnected"
+      );
+
       setIsConnected(false);
-    });
+    };
 
-    socket.on("connect_error", (err) => {
-      console.error("[Socket] Connection error:", err.message);
+    /**
+     * Connection error
+     */
+    const handleError = (err) => {
+      console.error(
+        "[Socket] Connection error:",
+        err.message
+      );
+
       setIsConnected(false);
-    });
+    };
 
-    // Cleanup on unmount
+    /**
+     * Register listeners
+     */
+    socket.on(
+      "connect",
+      handleConnect
+    );
+
+    socket.on(
+      "disconnect",
+      handleDisconnect
+    );
+
+    socket.on(
+      "connect_error",
+      handleError
+    );
+
+    /**
+     * Sync immediately
+     */
+    setIsConnected(
+      socket.connected
+    );
+
+    /**
+     * Cleanup listeners ONLY
+     * DO NOT disconnect global socket
+     */
     return () => {
-      socket.disconnect();
+      socket.off(
+        "connect",
+        handleConnect
+      );
+
+      socket.off(
+        "disconnect",
+        handleDisconnect
+      );
+
+      socket.off(
+        "connect_error",
+        handleError
+      );
     };
   }, []);
 
-  const emit = (event, data) => {
-    socketRef.current?.emit(event, data);
-  };
+  /**
+   * --------------------------------------------------
+   * Stable Socket Helpers
+   * --------------------------------------------------
+   * IMPORTANT:
+   * useCallback prevents infinite rerenders
+   */
 
-  const on = (event, callback) => {
-    socketRef.current?.on(event, callback);
-  };
+  const emit = useCallback(
+    (event, data) => {
+      socket.emit(event, data);
+    },
+    []
+  );
 
-  const off = (event, callback) => {
-    socketRef.current?.off(event, callback);
-  };
+  const on = useCallback(
+    (event, callback) => {
+      socket.on(event, callback);
+    },
+    []
+  );
 
-  return { emit, on, off, isConnected, socket: socketRef.current };
+  const off = useCallback(
+    (event, callback) => {
+      socket.off(event, callback);
+    },
+    []
+  );
+
+  return {
+    emit,
+    on,
+    off,
+    isConnected,
+    socket,
+  };
 };
 
 export default useSocket;
