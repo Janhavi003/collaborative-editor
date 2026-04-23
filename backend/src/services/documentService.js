@@ -4,17 +4,17 @@ const Document = require("../models/Document");
  * Load a document from MongoDB.
  * If it doesn't exist yet, create it (upsert pattern).
  */
-const loadDocument = async (documentId) => {
+const loadDocument = async (documentId, ownerId = null) => {
   try {
     let doc = await Document.findOne({ documentId, isDeleted: false });
 
     if (!doc) {
-      // First time this documentId is accessed — create it
       doc = await Document.create({
         documentId,
         title: "Untitled Document",
         content: "",
         version: 0,
+        ...(ownerId && { ownerId }),
       });
       console.log(`[DB] Created new document: ${documentId}`);
     }
