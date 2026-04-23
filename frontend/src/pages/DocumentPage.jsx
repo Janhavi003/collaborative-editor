@@ -9,31 +9,39 @@ import Editor from "../components/editor/Editor";
 import ActiveUsers from "../components/editor/ActiveUsers";
 import useCollaboration from "../hooks/useCollaboration";
 import { updateDocumentTitle } from "../api/documents";
+import { useAuth } from "../context/AuthContext";
 
-// For now, hard-coded. Phase 6 + 7 will make these dynamic.
+// Hardcoded for now
 const DOCUMENT_ID = "doc-001";
-const USER_NAME = "User " + Math.floor(Math.random() * 100);
 
 const DocumentPage = () => {
+  const { user, logout } = useAuth();
+
+  const USER_NAME = user?.name || "Anonymous";
+
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeUsers, setActiveUsers] = useState([]);
   const [editorInstance, setEditorInstance] = useState(null);
   const [initialContent, setInitialContent] = useState("");
-  const [documentTitle, setDocumentTitle] = useState("Untitled Document");
+  const [documentTitle, setDocumentTitle] =
+    useState("Untitled Document");
 
   const saveTimerRef = useRef(null);
 
-  const { isConnected, sendChange, conflictResolved } =
-    useCollaboration({
-      documentId: DOCUMENT_ID,
-      userName: USER_NAME,
-      editor: editorInstance,
-      onUsersUpdate: setActiveUsers,
-    });
+  const {
+    isConnected,
+    sendChange,
+    conflictResolved,
+  } = useCollaboration({
+    documentId: DOCUMENT_ID,
+    userName: USER_NAME,
+    editor: editorInstance,
+    onUsersUpdate: setActiveUsers,
+  });
 
   /**
-   * Load document from backend on page load
+   * Load document from backend
    */
   useEffect(() => {
     const fetchDocument = async () => {
@@ -63,14 +71,14 @@ const DocumentPage = () => {
   }, []);
 
   /**
-   * Handle editor content changes
+   * Handle editor content updates
    */
   const handleChange = useCallback(
     (html) => {
-      // Send updates to collaborators
+      // Send collaborative updates
       sendChange(html);
 
-      // Auto-save UI feedback
+      // UI save feedback
       setIsSaving(true);
 
       clearTimeout(saveTimerRef.current);
@@ -109,7 +117,7 @@ const DocumentPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      {/* Nav bar */}
+      {/* Navbar */}
       <nav
         className="
           flex items-center justify-between
@@ -118,7 +126,9 @@ const DocumentPage = () => {
           bg-white dark:bg-gray-900 z-20
         "
       >
+        {/* Left */}
         <div className="flex items-center gap-4">
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-blue-500 flex items-center justify-center">
               <span className="text-white text-xs font-bold">
@@ -133,11 +143,13 @@ const DocumentPage = () => {
 
           <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
 
-          {/* Editable document title */}
+          {/* Document title */}
           <input
             type="text"
             value={documentTitle}
-            onChange={(e) => setDocumentTitle(e.target.value)}
+            onChange={(e) =>
+              setDocumentTitle(e.target.value)
+            }
             onBlur={handleTitleChange}
             className="
               text-sm font-medium text-gray-700 dark:text-gray-200
@@ -149,11 +161,12 @@ const DocumentPage = () => {
           />
         </div>
 
+        {/* Right */}
         <div className="flex items-center gap-4">
           {/* Active users */}
           <ActiveUsers users={activeUsers} />
 
-          {/* Conflict resolved */}
+          {/* Conflict badge */}
           {conflictResolved && (
             <div
               className="
@@ -195,7 +208,7 @@ const DocumentPage = () => {
               : ""}
           </span>
 
-          {/* Dark mode toggle */}
+          {/* Dark mode */}
           <button
             onClick={() =>
               document.documentElement.classList.toggle(
@@ -210,6 +223,19 @@ const DocumentPage = () => {
             title="Toggle dark mode"
           >
             🌓
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={logout}
+            className="
+              px-3 py-1.5 rounded-md text-xs font-medium
+              text-gray-500 dark:text-gray-400
+              hover:bg-gray-100 dark:hover:bg-gray-800
+              transition-colors
+            "
+          >
+            Sign out
           </button>
         </div>
       </nav>
