@@ -2,22 +2,44 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const conn =
+      await mongoose.connect(
+        process.env.MONGODB_URI,
+        {
+          serverSelectionTimeoutMS: 5000,
+          socketTimeoutMS: 45000,
+        }
+      );
 
-    console.log(`[MongoDB] Connected: ${conn.connection.host}`);
+    console.log(
+      `[MongoDB] Connected: ${conn.connection.host}`
+    );
 
-    // Log when connection is lost
-    mongoose.connection.on("disconnected", () => {
-      console.warn("[MongoDB] Disconnected. Attempting to reconnect...");
-    });
+    /**
+     * Connection lifecycle logging
+     */
+    mongoose.connection.on(
+      "disconnected",
+      () => {
+        console.warn(
+          "[MongoDB] Disconnected. Attempting to reconnect..."
+        );
+      }
+    );
 
-    mongoose.connection.on("reconnected", () => {
-      console.log("[MongoDB] Reconnected.");
-    });
-
+    mongoose.connection.on(
+      "reconnected",
+      () => {
+        console.log(
+          "[MongoDB] Reconnected."
+        );
+      }
+    );
   } catch (error) {
-    console.error(`[MongoDB] Connection failed: ${error.message}`);
-    // Exit process — server is useless without a DB
+    console.error(
+      `[MongoDB] Connection failed: ${error.message}`
+    );
+
     process.exit(1);
   }
 };
