@@ -1,8 +1,8 @@
 import {
   useState,
   useCallback,
-  useRef,
   useEffect,
+  useRef,
 } from "react";
 
 import {
@@ -23,33 +23,50 @@ import {
 } from "../api/documents";
 
 const DocumentPage = () => {
-  const { documentId } = useParams();
+  const { documentId } =
+    useParams();
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const { user, logout } = useAuth();
-
-  const [lastSaved, setLastSaved] =
-    useState(null);
-
-  const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [activeUsers, setActiveUsers] =
-    useState([]);
+  const { user, logout } =
+    useAuth();
 
   /**
-   * Editor instance ref
+   * --------------------------------------------------
+   * UI state
+   * --------------------------------------------------
    */
-  const editorInstanceRef =
-    useRef(null);
+  const [
+    lastSaved,
+    setLastSaved,
+  ] = useState(null);
+
+  const [
+    isSaving,
+    setIsSaving,
+  ] = useState(false);
+
+  const [
+    activeUsers,
+    setActiveUsers,
+  ] = useState([]);
+
+  /**
+   * Editor instance
+   */
+  const [
+    editorInstance,
+    setEditorInstance,
+  ] = useState(null);
 
   /**
    * Document state
    */
-  const [title, setTitle] = useState(
-    "Untitled Document"
-  );
+  const [title, setTitle] =
+    useState(
+      "Untitled Document"
+    );
 
   const [content, setContent] =
     useState("");
@@ -57,13 +74,16 @@ const DocumentPage = () => {
   /**
    * Save debounce timer
    */
-  const saveTimerRef = useRef(null);
+  const saveTimerRef =
+    useRef(null);
 
   const USER_NAME =
     user?.name || "Anonymous";
 
   /**
-   * Load document metadata/content
+   * --------------------------------------------------
+   * Initial document fetch
+   * --------------------------------------------------
    */
   useEffect(() => {
     if (!documentId) return;
@@ -72,7 +92,8 @@ const DocumentPage = () => {
 
     fetchDocument(documentId)
       .then((data) => {
-        if (!mounted) return;
+        if (!mounted)
+          return;
 
         setTitle(
           data.document.title ||
@@ -80,20 +101,28 @@ const DocumentPage = () => {
         );
 
         setContent(
-          data.document.content || ""
+          data.document.content ||
+            ""
         );
       })
       .catch(() => {
-        navigate("/");
+        navigate(
+          "/dashboard"
+        );
       });
 
     return () => {
       mounted = false;
     };
-  }, [documentId, navigate]);
+  }, [
+    documentId,
+    navigate,
+  ]);
 
   /**
+   * --------------------------------------------------
    * Collaboration
+   * --------------------------------------------------
    */
   const {
     isConnected,
@@ -101,40 +130,61 @@ const DocumentPage = () => {
     conflictResolved,
   } = useCollaboration({
     documentId,
+
     userName: USER_NAME,
-    editor:
-      editorInstanceRef.current,
+
     onUsersUpdate:
       setActiveUsers,
+
+    /**
+     * IMPORTANT:
+     * remote changes update React state
+     */
+    onRemoteChange:
+      setContent,
   });
 
   /**
-   * Handle editor changes
+   * --------------------------------------------------
+   * Handle local editor changes
+   * --------------------------------------------------
    */
-  const handleChange = useCallback(
-    (html) => {
-      setContent(html);
+  const handleChange =
+    useCallback(
+      (html) => {
+        /**
+         * Keep local React state synced
+         */
+        setContent(html);
 
-      sendChange(html);
+        /**
+         * Send realtime update
+         */
+        sendChange(html);
 
-      setIsSaving(true);
+        /**
+         * Save UI state
+         */
+        setIsSaving(true);
 
-      clearTimeout(
-        saveTimerRef.current
-      );
+        clearTimeout(
+          saveTimerRef.current
+        );
 
-      saveTimerRef.current =
-        setTimeout(() => {
-          setIsSaving(false);
+        saveTimerRef.current =
+          setTimeout(() => {
+            setIsSaving(false);
 
-          setLastSaved(new Date());
-        }, 1000);
-    },
-    [sendChange]
-  );
+            setLastSaved(
+              new Date()
+            );
+          }, 1000);
+      },
+      [sendChange]
+    );
 
   /**
-   * Cleanup save timer
+   * Cleanup timer
    */
   useEffect(() => {
     return () => {
@@ -145,7 +195,9 @@ const DocumentPage = () => {
   }, []);
 
   /**
+   * --------------------------------------------------
    * Save title
+   * --------------------------------------------------
    */
   const handleTitleBlur =
     useCallback(
@@ -172,7 +224,9 @@ const DocumentPage = () => {
     );
 
   /**
-   * Format save timestamp
+   * --------------------------------------------------
+   * Format save time
+   * --------------------------------------------------
    */
   const formatSaveTime = (
     date
@@ -183,14 +237,15 @@ const DocumentPage = () => {
       [],
       {
         hour: "2-digit",
-        minute: "2-digit",
+        minute:
+          "2-digit",
       }
     );
   };
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      {/* Top nav */}
+      {/* NAVBAR */}
       <nav
         className="
           flex items-center justify-between
@@ -199,12 +254,14 @@ const DocumentPage = () => {
           bg-white dark:bg-gray-900 z-20
         "
       >
-        {/* Left */}
+        {/* LEFT */}
         <div className="flex items-center gap-3">
           {/* Back */}
           <button
             onClick={() =>
-              navigate("/")
+              navigate(
+                "/dashboard"
+              )
             }
             className="
               flex items-center gap-1.5
@@ -214,7 +271,7 @@ const DocumentPage = () => {
               hover:bg-gray-100 dark:hover:bg-gray-800
               transition-colors
             "
-            title="Back to documents"
+            title="Back to dashboard"
           >
             <span className="text-lg">
               ←
@@ -224,10 +281,16 @@ const DocumentPage = () => {
           <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
 
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              navigate("/")
+            }
+            className="flex items-center gap-2"
+          >
             <div
               className="
-                w-6 h-6 rounded-md bg-blue-500
+                w-6 h-6 rounded-md
+                bg-blue-500
                 flex items-center justify-center
               "
             >
@@ -235,11 +298,20 @@ const DocumentPage = () => {
                 C
               </span>
             </div>
-          </div>
+
+            <span
+              className="
+                text-sm font-semibold
+                text-gray-700 dark:text-gray-200
+              "
+            >
+              CollabDocs
+            </span>
+          </button>
 
           <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
 
-          {/* Editable title */}
+          {/* Title */}
           <input
             type="text"
             value={title}
@@ -263,12 +335,14 @@ const DocumentPage = () => {
           />
         </div>
 
-        {/* Right */}
+        {/* RIGHT */}
         <div className="flex items-center gap-4">
+          {/* Active users */}
           <ActiveUsers
             users={activeUsers}
           />
 
+          {/* Conflict badge */}
           {conflictResolved && (
             <div
               className="
@@ -308,7 +382,7 @@ const DocumentPage = () => {
             </span>
           </div>
 
-          {/* Save state */}
+          {/* Save status */}
           <span
             className="
               text-xs text-gray-400
@@ -324,7 +398,7 @@ const DocumentPage = () => {
               : ""}
           </span>
 
-          {/* Dark mode */}
+          {/* Theme toggle */}
           <button
             onClick={() =>
               document.documentElement.classList.toggle(
@@ -357,17 +431,16 @@ const DocumentPage = () => {
         </div>
       </nav>
 
-      {/* Editor */}
+      {/* EDITOR */}
       <div className="flex-1 overflow-hidden">
         <Editor
           content={content}
-          onChange={handleChange}
-          onEditorReady={(
-            editor
-          ) => {
-            editorInstanceRef.current =
-              editor;
-          }}
+          onChange={
+            handleChange
+          }
+          onEditorReady={
+            setEditorInstance
+          }
         />
       </div>
     </div>

@@ -9,9 +9,6 @@ import useSocket, {
   EVENTS,
 } from "./useSocket";
 
-/**
- * Generate unique operation ID
- */
 const generateOpId = () =>
   `${Date.now()}-${Math.random()
     .toString(36)
@@ -20,8 +17,8 @@ const generateOpId = () =>
 const useCollaboration = ({
   documentId,
   userName,
-  editor,
   onUsersUpdate,
+  onRemoteChange,
 }) => {
   const {
     emit,
@@ -30,62 +27,34 @@ const useCollaboration = ({
     isConnected,
   } = useSocket();
 
-  /**
-   * Prevent collaboration echo loops
-   */
-  const isRemoteUpdate = useRef(false);
+  const versionRef =
+    useRef(0);
 
-  /**
-   * Server version tracking
-   */
-  const versionRef = useRef(0);
+  const pendingOps =
+    useRef([]);
 
-  /**
-   * Pending operation queue
-   */
-  const pendingOps = useRef([]);
+  const [
+    conflictResolved,
+    setConflictResolved,
+  ] = useState(false);
 
-  /**
-   * Conflict UI
-   */
-  const [conflictResolved, setConflictResolved] =
-    useState(false);
-
-  /**
-   * Timer cleanup
-   */
-  const conflictTimerRef = useRef(null);
+  const mountedRef =
+    useRef(true);
 
   /**
    * Mounted guard
-   */
-  const mountedRef = useRef(true);
-
-  /**
-   * Stable editor ref
-   */
-  const editorRef = useRef(null);
-
-  /**
-   * Keep latest editor instance
-   */
-  useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
-
-  /**
-   * Mounted lifecycle
    */
   useEffect(() => {
     mountedRef.current = true;
 
     return () => {
-      mountedRef.current = false;
+      mountedRef.current =
+        false;
     };
   }, []);
 
   /**
-   * Conflict badge helper
+   * Conflict badge
    */
   const showConflictBadge =
     useCallback(() => {
@@ -94,137 +63,94 @@ const useCollaboration = ({
 
       setConflictResolved(true);
 
-      clearTimeout(
-        conflictTimerRef.current
-      );
-
-      conflictTimerRef.current =
-        setTimeout(() => {
-          if (!mountedRef.current)
-            return;
-
-          setConflictResolved(false);
-        }, 3000);
+      setTimeout(() => {
+        if (
+          mountedRef.current
+        ) {
+          setConflictResolved(
+            false
+          );
+        }
+      }, 3000);
     }, []);
 
   /**
-   * --------------------------------------------------
    * Main collaboration lifecycle
-   * --------------------------------------------------
    */
   useEffect(() => {
+    if (!documentId)
+      return;
+
     /**
-     * Wait for valid setup
+     * Join room
      */
-    if (!documentId) return;
+    emit(
+      EVENTS.JOIN_DOCUMENT,
+      {
+        documentId,
+        userName,
+      }
+    );
 
     /**
-     * Join collaboration room
+     * Initial document
      */
-    emit(EVENTS.JOIN_DOCUMENT, {
-      documentId,
-      userName,
-    });
+    const handleDocumentState =
+      ({
+        content,
+        version,
+      }) => {
+        versionRef.current =
+          version || 0;
+
+        /**
+         * IMPORTANT:
+         * update React state
+         */
+        onRemoteChange?.(
+          content || ""
+        );
+      };
 
     /**
-     * Initial document sync
+     * Remote operation
      */
-    const handleDocumentState = ({
-      content,
-      version,
-    }) => {
-      const editor =
-        editorRef.current;
+    const handleOperation =
+      ({
+        operation,
+        serverVersion,
+      }) => {
+        versionRef.current =
+          serverVersion;
 
-      if (!editor) return;
+        /**
+         * IMPORTANT:
+         * update React state
+         */
+        if (
+          operation.type ===
+          "replace"
+        ) {
+          onRemoteChange?.(
+            operation.content
+          );
+        } else if (
+          operation.richContent
+        ) {
+          onRemoteChange?.(
+            operation.richContent
+          );
+        }
 
-      versionRef.current = version;
-
-      if (content) {
-        isRemoteUpdate.current = true;
-
-        editor.commands.setContent(
-          content,
-          false
-        );
-
-        queueMicrotask(() => {
-          isRemoteUpdate.current = false;
-        });
-      }
-    };
-
-    /**
-     * Remote operation received
-     */
-    const handleOperation = ({
-      operation,
-      serverVersion,
-    }) => {
-      const editor =
-        editorRef.current;
-
-      if (!editor) return;
-
-      versionRef.current =
-        serverVersion;
-
-      isRemoteUpdate.current = true;
-
-      /**
-       * Replace
-       */
-      if (
-        operation.type === "replace"
-      ) {
-        editor.commands.setContent(
-          operation.content,
-          false
-        );
-      }
-
-      /**
-       * Insert
-       */
-      if (
-        operation.type === "insert" &&
-        operation.richContent
-      ) {
-        editor.commands.setContent(
-          operation.richContent,
-          false
-        );
-      }
-
-      /**
-       * Delete
-       */
-      if (
-        operation.type === "delete" &&
-        operation.richContent
-      ) {
-        editor.commands.setContent(
-          operation.richContent,
-          false
-        );
-      }
-
-      queueMicrotask(() => {
-        isRemoteUpdate.current = false;
-      });
-
-      /**
-       * Conflict resolved UI
-       */
-      if (
-        operation.wasTransformed
-      ) {
-        showConflictBadge();
-      }
-    };
+        if (
+          operation.wasTransformed
+        ) {
+          showConflictBadge();
+        }
+      };
 
     /**
-     * Server ACK
+     * ACK
      */
     const handleAck = ({
       serverVersion,
@@ -234,21 +160,26 @@ const useCollaboration = ({
         serverVersion;
 
       pendingOps.current =
-        pendingOps.current.slice(1);
+        pendingOps.current.slice(
+          1
+        );
 
-      if (wasTransformed) {
+      if (
+        wasTransformed
+      ) {
         showConflictBadge();
       }
     };
 
     /**
-     * Active users update
+     * Users
      */
-    const handleUsersUpdate = ({
-      users,
-    }) => {
-      onUsersUpdate?.(users);
-    };
+    const handleUsersUpdate =
+      ({ users }) => {
+        onUsersUpdate?.(
+          users
+        );
+      };
 
     /**
      * Register listeners
@@ -273,9 +204,6 @@ const useCollaboration = ({
       handleUsersUpdate
     );
 
-    /**
-     * Cleanup
-     */
     return () => {
       off(
         EVENTS.DOCUMENT_STATE,
@@ -296,55 +224,57 @@ const useCollaboration = ({
         EVENTS.USERS_UPDATE,
         handleUsersUpdate
       );
-
-      clearTimeout(
-        conflictTimerRef.current
-      );
     };
   }, [
     documentId,
     userName,
+    emit,
+    on,
+    off,
+    onUsersUpdate,
+    onRemoteChange,
     showConflictBadge,
   ]);
 
   /**
-   * Send editor changes
+   * Send local changes
    */
-  const sendChange = useCallback(
-    (content) => {
-      /**
-       * Ignore remote sync updates
-       */
-      if (
-        isRemoteUpdate.current
-      ) {
-        return;
-      }
+  const sendChange =
+    useCallback(
+      (content) => {
+        const op = {
+          id: generateOpId(),
 
-      const op = {
-        id: generateOpId(),
+          type: "replace",
 
-        type: "replace",
+          content,
 
-        content,
+          richContent:
+            content,
 
-        richContent: content,
+          version:
+            versionRef.current,
 
-        version:
-          versionRef.current,
+          clientId: null,
+        };
 
-        clientId: null,
-      };
+        pendingOps.current.push(
+          op
+        );
 
-      pendingOps.current.push(op);
-
-      emit(EVENTS.OPERATION, {
+        emit(
+          EVENTS.OPERATION,
+          {
+            documentId,
+            operation: op,
+          }
+        );
+      },
+      [
         documentId,
-        operation: op,
-      });
-    },
-    [documentId, emit]
-  );
+        emit,
+      ]
+    );
 
   return {
     isConnected,
