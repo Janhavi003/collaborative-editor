@@ -153,11 +153,14 @@ const LandingPage = () => {
   const { user } =
     useAuth();
 
+  /**
+   * CTA flow
+   */
   const handleCTA = () => {
     if (user) {
-      navigate("/");
+      navigate("/dashboard");
     } else {
-      window.location.href = `${BACKEND_URL}/api/auth/google`;
+      navigate("/login");
     }
   };
 
@@ -198,7 +201,12 @@ const LandingPage = () => {
         "
       >
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() =>
+            navigate("/")
+          }
+          className="flex items-center gap-2"
+        >
           <div
             className="
               w-7 h-7 rounded-lg
@@ -219,10 +227,11 @@ const LandingPage = () => {
           >
             CollabDocs
           </span>
-        </div>
+        </button>
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          {/* Dark mode */}
           <button
             onClick={() =>
               document.documentElement.classList.toggle(
@@ -240,10 +249,13 @@ const LandingPage = () => {
             🌓
           </button>
 
+          {/* CTA */}
           {user ? (
             <button
               onClick={() =>
-                navigate("/")
+                navigate(
+                  "/dashboard"
+                )
               }
               className="
                 px-4 py-2 rounded-xl
@@ -453,89 +465,271 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer
-        className="
-          border-t border-gray-100 dark:border-gray-800
-          px-6 md:px-12 py-10
-          bg-white dark:bg-gray-950
-        "
-      >
-        <div
-          className="
-            max-w-7xl mx-auto
-            flex flex-col sm:flex-row
-            items-center justify-between
-            gap-4
-          "
-        >
-          {/* Brand */}
-          <div className="flex items-center gap-2">
-            <div
-              className="
-                w-6 h-6 rounded-md
-                bg-blue-500
-                flex items-center justify-center
-              "
-            >
-              <span className="text-white text-xs font-bold">
-                C
-              </span>
-            </div>
+{/* FOOTER */}
+<footer
+  className="
+    relative overflow-hidden
+    border-t border-gray-100 dark:border-gray-800
+    bg-gradient-to-b
+    from-white to-gray-50
+    dark:from-gray-950 dark:to-gray-900
+    px-6 md:px-12 py-16
+  "
+>
+  {/* Background glow */}
+  <div
+    className="
+      absolute inset-0 pointer-events-none
+      opacity-40 dark:opacity-20
+    "
+  >
+    <div
+      className="
+        absolute top-0 left-1/2 -translate-x-1/2
+        w-[500px] h-[300px]
+        bg-blue-200 dark:bg-blue-900
+        blur-3xl rounded-full
+      "
+    />
+  </div>
 
-            <span
+  <div className="relative max-w-7xl mx-auto">
+    {/* Top row */}
+    <div
+      className="
+        flex flex-col lg:flex-row
+        justify-between gap-12
+        mb-12
+      "
+    >
+      {/* Brand */}
+      <div className="max-w-sm">
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-3 mb-5"
+        >
+          <div
+            className="
+              w-10 h-10 rounded-xl
+              bg-blue-500
+              flex items-center justify-center
+              shadow-lg shadow-blue-500/20
+            "
+          >
+            <span className="text-white font-bold">
+              C
+            </span>
+          </div>
+
+          <div className="text-left">
+            <h3
               className="
-                text-sm font-semibold
-                text-gray-700 dark:text-gray-300
+                font-bold text-lg
+                text-gray-900 dark:text-white
               "
             >
               CollabDocs
-            </span>
-          </div>
+            </h3>
 
-          {/* Text */}
-          <p
-            className="
-              text-xs
-              text-gray-400 dark:text-gray-600
-            "
-          >
-            Built as a portfolio
-            project demonstrating
-            real-time systems
-            design.
-          </p>
-
-          {/* Links */}
-          <div
-            className="
-              flex items-center gap-4
-              text-xs
-              text-gray-400 dark:text-gray-600
-            "
-          >
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
+            <p
               className="
-                hover:text-gray-600
-                dark:hover:text-gray-400
-                transition-colors
+                text-xs text-gray-500
+                dark:text-gray-400
               "
             >
-              GitHub
-            </a>
-
-            <span>·</span>
-
-            <span>
-              Made with React +
-              Node.js
-            </span>
+              Real-time collaborative editing
+            </p>
           </div>
+        </button>
+
+        <p
+          className="
+            text-sm leading-relaxed
+            text-gray-500 dark:text-gray-400
+          "
+        >
+          A modern collaborative editor powered by
+          WebSockets, Operational Transformation,
+          React, Node.js, and MongoDB.
+        </p>
+
+        {/* Socials */}
+        <div className="flex items-center gap-3 mt-6">
+          <a
+            href="https://github.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+              w-10 h-10 rounded-xl
+              border border-gray-200 dark:border-gray-700
+              flex items-center justify-center
+              text-gray-500 dark:text-gray-400
+              hover:bg-gray-100 dark:hover:bg-gray-800
+              hover:text-gray-900 dark:hover:text-white
+              transition-all
+            "
+          >
+            <svg
+              className="w-5 h-5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                fillRule="evenodd"
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </a>
         </div>
-      </footer>
+      </div>
+
+      {/* Links */}
+      <div
+        className="
+          grid grid-cols-2 sm:grid-cols-3
+          gap-10
+        "
+      >
+        {/* Product */}
+        <div>
+          <h4
+            className="
+              text-sm font-semibold
+              text-gray-900 dark:text-white
+              mb-4
+            "
+          >
+            Product
+          </h4>
+
+          <ul className="space-y-3 text-sm">
+            <li>
+              <a
+                href="#features"
+                className="text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                Features
+              </a>
+            </li>
+
+            <li>
+              <a
+                href="#workflow"
+                className="text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                Workflow
+              </a>
+            </li>
+
+            <li>
+              <button
+                onClick={handleCTA}
+                className="text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                Get Started
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        {/* Tech */}
+        <div>
+          <h4
+            className="
+              text-sm font-semibold
+              text-gray-900 dark:text-white
+              mb-4
+            "
+          >
+            Stack
+          </h4>
+
+          <ul className="space-y-3 text-sm text-gray-500 dark:text-gray-400">
+            <li>React + Vite</li>
+            <li>Node.js + Express</li>
+            <li>MongoDB</li>
+            <li>Socket.IO</li>
+          </ul>
+        </div>
+
+        {/* About */}
+        <div>
+          <h4
+            className="
+              text-sm font-semibold
+              text-gray-900 dark:text-white
+              mb-4
+            "
+          >
+            About
+          </h4>
+
+          <ul className="space-y-3 text-sm">
+            <li>
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                GitHub
+              </a>
+            </li>
+
+            <li>
+              <span className="text-gray-500 dark:text-gray-400">
+                Portfolio Project
+              </span>
+            </li>
+
+            <li>
+              <span className="text-gray-500 dark:text-gray-400">
+                Built with ❤️
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {/* Bottom row */}
+    <div
+      className="
+        pt-6
+        border-t border-gray-200 dark:border-gray-800
+        flex flex-col sm:flex-row
+        items-center justify-between gap-4
+      "
+    >
+      <p
+        className="
+          text-xs
+          text-gray-400 dark:text-gray-500
+        "
+      >
+        © {new Date().getFullYear()} CollabDocs.
+        All rights reserved.
+      </p>
+
+      <div
+        className="
+          flex items-center gap-3
+          text-xs
+          text-gray-400 dark:text-gray-500
+        "
+      >
+        <span>Realtime Collaboration</span>
+        <span>•</span>
+        <span>Operational Transformation</span>
+        <span>•</span>
+        <span>WebSockets</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+
     </div>
   );
 };
