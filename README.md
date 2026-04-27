@@ -2,7 +2,7 @@
 
 A real-time collaborative document editor built as a portfolio project — demonstrating WebSocket architecture, Operational Transformation, and full-stack product engineering.
 
- **Live demo:** https://your-app.vercel.app  
+ **Live demo:** https://collaborative-editor-g1tshf7x1-janhavi-hivarekar-s-projects.vercel.app/
  **Backend API:** https://collaborative-editor-fri4.onrender.com/health
 
 ---
